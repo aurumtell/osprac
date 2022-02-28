@@ -16,11 +16,13 @@ int main() {
         exit(-1);
     }
     fcntl(fp[1], F_SETFL, fcntl(fp[1], F_GETFL) | O_NONBLOCK);
-
-    while (size == 1) {
+    do {
         size = write(fp[1], resstring, 1);
+        if (size != 1){
+            break;
+        }
         res++;
-    }
+    } while (1);
     printf("Pipe size: %d\n", res);
     return 0;
 }
