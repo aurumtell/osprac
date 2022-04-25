@@ -27,7 +27,7 @@ int main() {
     int *array;
     int shmid;
     int new = 1;
-    char pathname[] = "task9-2b.c";
+    char pathname[] = "task9-2a.c";
     key_t key;
     long i;
 
