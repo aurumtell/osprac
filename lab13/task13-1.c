@@ -1,75 +1,66 @@
 #include <sys/types.h>
-#include <dirent.h>
-#include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
 
-int create(char* name){
-    FILE* fd = fopen(name, "w");
-    if(fd == NULL){
-        printf("Can\'t create file\n");
-        return 0;
+void addOne(char* s, int index) {
+    s[index] += 1;
+    if (s[index] > 'z') {
+        s[index] = 'a';
+        addOne(s, index - 1);
     }
-    fclose(fd);
-    return 1;
 }
 
+int main()
+{
+    int     fd;
+    char    fileName[] = "aa";
+    char    symlinkName[] = "test/aa";
+    (void) umask(0);
 
-int main(int argc, char* argv[]){
-    char* directory = "dir";
-
-    struct stat st = {0};
-
-    if (stat(directory, &st) == -1) {
-        printf("Directory doesn\'t exists. Try to create new\n");
-        if(mkdir(directory, 0700)) {
-            printf("Can\'t create dir\n");
-            exit(-1);
-        }
+    // создаём директорию под файлы
+    if (mkdir("test", 0777) < 0) {
+        printf("Unable to create dir 'test'. If it exists, please delete it.\n");
+        exit(-1);
     }
 
-    DIR *dir = opendir(directory);
-
-    if(dir == NULL){
-        printf("Can\'t open directory\n");
-        exit(1);
-    }
-
-    char* filename = malloc(sizeof("999"));
-    sprintf(filename, "dir/%03d", 0);
-    if(!create(filename)){
+    // создаём начальный файл
+    if ((fd = open("test/aa", O_WRONLY | O_CREAT, 0666)) < 0) {
         printf("Can\'t open file\n");
-        exit(1);
+        exit(-1);
+    }
+    if (close(fd) < 0) {
+        printf("Can\'t close file\n");
     }
 
-    int count = 1;
-
-    while(1){
-        char* filename1 = malloc(sizeof("999"));
-        sprintf(filename1, "%03d", count - 1);
-        char* prev = filename1;
-        char* filename2 = malloc(sizeof("999"));
-        sprintf(filename2, "dir/%03d", count);
-        char* current = filename2;
-        int link = symlink(prev, current);
-        if(link){
+    int maxRecursion = 0;
+    while (1) {
+        addOne(symlinkName, 6);
+        if (symlink(fileName, symlinkName) != 0) {
+            printf("Unable to create symlink\n");
             exit(-1);
         }
-        if(fopen(current, "r") == NULL) {
-            printf("Recursion: %d\n", count);
-            if (closedir(dir) != 0) {
-                printf("Error closing dir!\n");
-                return(-1);
-            }
-            exit(1);
-        }
-        free(prev);
-        free(current);
 
-        count++;
+        // проверяем, можно ли всё ещё открыть файл
+        if ((fd = open(symlinkName, O_WRONLY, 0666)) < 0) {
+            // если нельзя, значит мы достигли максимального уровня рекурсии
+            break;
+        } else {
+            maxRecursion++;
+        }
+
+        if (close(fd) < 0) {
+            printf("Can\'t close file\n");
+        }
+
+        addOne(fileName, 1);
     }
+
+    printf("maxRecursion: %d\n", maxRecursion);
+
+
+    return 0;
 }
